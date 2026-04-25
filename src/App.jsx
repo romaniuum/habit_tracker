@@ -1,19 +1,48 @@
-import { useState } from 'react'
-import HabitForm from './components/HabitForm'
-import HabitList from './components/HabitList'
-import FilterBar from './components/FilterBar'
+import { useState, useEffect } from 'react'
+import { Routes, Route } from 'react-router-dom'
+import NavBar from './components/NavBar'
+import HabitsPage from './pages/HabitsPage'
+import QuotesPage from './pages/QuotesPage'
 import './App.css'
 
 let nextId = 1
 
-export default function App() {
-  const [habits, setHabits] = useState([
+function getInitialHabits() {
+  try {
+    const stored = localStorage.getItem('habits')
+    if (stored) {
+      const parsed = JSON.parse(stored)
+      if (parsed.length > 0) {
+        nextId = Math.max(...parsed.map(h => h.id)) + 1
+      }
+      return parsed
+    }
+  } catch {}
+  return [
     { id: nextId++, name: 'Выпить 2 литра воды', category: 'здоровье', completed: false },
     { id: nextId++, name: 'Пробежка 30 минут', category: 'спорт', completed: true },
     { id: nextId++, name: 'Читать 20 страниц', category: 'учёба', completed: false },
-  ])
+  ]
+}
+
+export default function App() {
+  const [habits, setHabits] = useState(getInitialHabits)
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light')
+
+  useEffect(() => {
+    localStorage.setItem('habits', JSON.stringify(habits))
+  }, [habits])
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('theme', theme)
+  }, [theme])
+
+  function toggleTheme() {
+    setTheme(t => (t === 'light' ? 'dark' : 'light'))
+  }
 
   function addHabit(name, category) {
     setHabits(prev => [...prev, { id: nextId++, name, category, completed: false }])
@@ -21,7 +50,7 @@ export default function App() {
 
   function toggleHabit(id) {
     setHabits(prev =>
-      prev.map(h => h.id === id ? { ...h, completed: !h.completed } : h)
+      prev.map(h => (h.id === id ? { ...h, completed: !h.completed } : h))
     )
   }
 
@@ -31,7 +60,7 @@ export default function App() {
 
   function renameHabit(id, newName) {
     setHabits(prev =>
-      prev.map(h => h.id === id ? { ...h, name: newName } : h)
+      prev.map(h => (h.id === id ? { ...h, name: newName } : h))
     )
   }
 
@@ -47,31 +76,34 @@ export default function App() {
   const doneCount = habits.filter(h => h.completed).length
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <h1>Трекер привычек</h1>
-        <p className="subtitle">Формируй полезные привычки каждый день</p>
-        <span className="counter-badge">
-          Выполнено {doneCount} из {habits.length}
-        </span>
-      </header>
-
-      <HabitForm onAdd={addHabit} />
-
-      <FilterBar
-        filter={filter}
-        search={search}
-        onFilterChange={setFilter}
-        onSearchChange={setSearch}
-      />
-
-      <HabitList
-        habits={filtered}
-        onToggle={toggleHabit}
-        onDelete={deleteHabit}
-        onRename={renameHabit}
+    <>
+      <NavBar
+        doneCount={doneCount}
         totalCount={habits.length}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
-    </div>
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <HabitsPage
+              habits={filtered}
+              filter={filter}
+              search={search}
+              onAdd={addHabit}
+              onToggle={toggleHabit}
+              onDelete={deleteHabit}
+              onRename={renameHabit}
+              onFilterChange={setFilter}
+              onSearchChange={setSearch}
+              doneCount={doneCount}
+              totalCount={habits.length}
+            />
+          }
+        />
+        <Route path="/quotes" element={<QuotesPage />} />
+      </Routes>
+    </>
   )
 }
